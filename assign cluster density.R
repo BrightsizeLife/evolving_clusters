@@ -1,10 +1,16 @@
 assign_clusters_density <- function(
     data,
+    pre_scaled = FALSE,
     results,
     burn_in_frac = 0.1
 ) {
   library(dplyr)
   library(stats)   # for density()
+  
+  #get data right
+  if (pre_scaled == FALSE) {
+    data <- scale_data(data)
+  }
   
   # --- 1) Basic checks ---
   if (!"cluster_dist_df" %in% names(results)) {
@@ -13,6 +19,9 @@ assign_clusters_density <- function(
   if (!"cluster_centers_df" %in% names(results)) {
     stop("results must contain 'cluster_centers_df' with columns (generation, individual, cluster, dimension, value).")
   }
+  
+  
+  
   
   cluster_dist_df    <- results$cluster_dist_df
   cluster_centers_df <- results$cluster_centers_df
@@ -101,7 +110,7 @@ assign_clusters_density <- function(
       if (length(vals) < 2) {
         # fallback: if there's only one or zero points,
         # we artificially create a density near that point, or skip
-        dens_dim_list[[d]] <- NA
+        dens_dim_list[[d]] <- NULL
         next
       }
       
@@ -127,14 +136,15 @@ assign_clusters_density <- function(
   
   # define a small helper to approximate the density at x from a 'density' object
   dens_approx <- function(dens_obj, x) {
-    # if dens_obj is NA, return 0
-    if (is.null(dens_obj) || is.na(dens_obj)) return(0)
-    # approx density
+    if (is.null(dens_obj)) {
+      return(0)
+    }
+    # otherwise dens_obj is a density object (a list)
     approx_y <- approx(dens_obj$x, dens_obj$y, xout = x)$y
-    # if out of range, approx_y can be NA => treat as 0
     if (is.na(approx_y)) approx_y <- 0
     return(approx_y)
   }
+  
   
   for (row_idx in seq_len(n_rows)) {
     # The data point's coordinates
@@ -171,3 +181,37 @@ assign_clusters_density <- function(
   # Return
   return(out_df)
 }
+
+
+##########TEST##############
+cluster_assignments <- assign_clusters_density(
+  data = data,
+  pre_scaled = FALSE,
+  results = evo_results,
+  burn_in_frac = .10
+)
+
+
+#explore
+tibble(
+  data,
+  species = iris$Species,
+  cluster = cluster_assignments$cluster_assignment
+) -> cluster_w_data
+
+cluster_w_data %>% group_by(cluster, species) %>% tally()
+
+
+cluster_w_data %>% ggplot(
+  aes(x = Sepal.Length, y = Sepal.Width, color = factor(cluster))) +
+  geom_point() +
+  facet_grid(. ~ species)
+
+
+cluster_w_data %>% ggplot(
+  aes(x = Sepal.Length, y = Sepal.Width, color = factor(species))) +
+  geom_point() +
+  facet_grid(. ~ cluster)
+
+
+cluster_w_data %>% group_by(species) %>% summarise()

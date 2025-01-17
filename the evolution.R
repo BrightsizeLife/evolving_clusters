@@ -785,6 +785,9 @@ evo_results <- evo_clustering_wss_ratio(n_gen = 100,
 
 ########EXPLORING THE RESULTS#########
 
+
+library(tidyverse)
+
 evo_results$cluster_centers_df %>%
   group_by(individual) %>%
   mutate(clusters = max(cluster)) %>% 
